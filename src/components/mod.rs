@@ -6,3 +6,6 @@ pub mod lexer;
 
 #[path ="./definitions/token.rs"]
 pub mod token; 
+
+#[path ="./definitions/keyword.rs"]
+pub mod keyword; 

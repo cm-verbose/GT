@@ -1,167 +1,209 @@
-use super::token::{Keywords, Token, TokenType};
+use super::keyword::Keyword;
+use super::token::{Token, TokenType};
 
+/// A lexer that returns a sequence of tokens when using the
+/// `lex()` method
 pub struct Lexer {
   ptr: usize,
-  code: String,
+  line: usize,
   chars: Vec<char>,
   tokens: Vec<Token>,
 }
 
 impl Lexer {
-  pub fn ini() -> Self {
+  pub fn new() -> Self {
     Lexer {
       ptr: 0,
-      code: String::new(),
+      line: 1,
       chars: Vec::new(),
       tokens: Vec::new(),
     }
   }
 
-  /// Lexes a string of code
-  pub fn lex(&mut self, code: String) -> &Vec<Token> {
+  /// Lex provided source code
+  pub fn lex(&mut self, code: String) -> Result<&Vec<Token>, String> {
     self.reset();
-    self.code = code;
-    self.chars = self.code.chars().collect();
+    self.chars = code.chars().collect();
 
-    'lex_loop: while self.ptr < self.code.len() && self.chars.get(self.ptr).is_some() {
-      let current: char = *self.chars.get(self.ptr).unwrap();
-      let curr_string: String = current.to_string();
+    return self.pass_chars();
+  }
 
+  /// Iterate through characters to identify tokens
+  fn pass_chars(&mut self) -> Result<&Vec<Token>, String> {
+    while let Some(current_char) = self.chars.get(self.ptr) {
+      let current: char = *current_char;
+
+      self.try_lex_operators_brackets(current);
       match current {
-        ';' => self.lex_comment(),
-        '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' => {
-          let op_eq: String = curr_string + "=";
-
-          if let Some(peeked) = self.peek(2) {
-            if peeked == op_eq {
-              self.add_token(peeked, TokenType::OPERATOR);
-              self.ptr += 2;
-              continue;
-            }
-          }
-          self.add_token(current.to_string(), TokenType::OPERATOR);
-        }
-
-        // Brackets
-        '(' | ')' | '[' | ']' | '{' | '}' => {
-          self.add_token(curr_string, TokenType::BRACKET);
-        }
-
-        '\"' => self.lex_string(),
+        ';' => self.lex_comments(),
+        '\"' => self.lex_string()?,
+        '\n' => self.line += 1,
         _ => {}
       }
 
-      if current.is_digit(10) {
-        self.lex_number();
+      if current.is_ascii_digit() {
+        self.lex_number()?
       }
 
-      // identifiers & keywords
-      if current.is_ascii_alphabetic() {
-        let mut identifier_literal: String = String::new();
-
-        'identifier_loop: while let Some(character) = self.chars.get(self.ptr) {
-          if !character.is_alphanumeric() {
-            break 'identifier_loop;
-          }
-          identifier_literal.push(*character);
-          self.ptr += 1;
-        }
-
-        for keyword in Keywords::iterator() {
-          if keyword.as_str() == identifier_literal {
-            self.add_token(identifier_literal.clone(), TokenType::KEYWORD);
-            continue 'lex_loop;
-          }
-        }
-
-        self.add_token(identifier_literal, TokenType::IDENTIFIER);
-        continue;
+      if current.is_alphabetic() {
+        self.lex_identifier_keywords()?
       }
       self.ptr += 1;
     }
-
-    return &self.tokens;
+    return Ok(&self.tokens);
   }
 
-  fn lex_comment(&mut self) {
-    let mut comment_literal: String = String::new();
+  /// Attempts to lex operators and brackets
+  fn try_lex_operators_brackets(&mut self, current: char) {
+    match current {
+      '+' | '-' | '*' | '/' | '%' | '!' | '<' | '>' | '=' => {
+        let operator_equals: String = current.to_string() + "=";
+        let peeked = self.peek(2);
+
+        if peeked.is_some() && peeked.unwrap() == operator_equals {
+          self.ptr += 2;
+          self.add_token(operator_equals, TokenType::OPERATOR);
+        } else {
+          self.add_token(current.to_string(), TokenType::OPERATOR);
+        }
+      }
+
+      '(' | ')' | '[' | ']' | '{' | '}' => {
+        self.add_token(current.to_string(), TokenType::BRACKET);
+      }
+      _ => {}
+    }
+  }
+
+  /// Lexes a comment (starts with ';')
+  fn lex_comments(&mut self) {
+    let mut literal: String = String::new();
+
     self.ptr += 1;
 
-    while let Some(character) = self.chars.get(self.ptr) {
-      if *character == '\n' {
-        break;
-      };
-      comment_literal.push(*character);
-      self.ptr += 1;
-    }
-    self.add_token(comment_literal, TokenType::COMMENT);
-  }
-
-  fn lex_number(&mut self) {
-    let mut number_literal: String = String::new();
-
-    while let Some(character) = self.chars.get(self.ptr) {
-      let num_part: char = *character;
-      if num_part == '.' {
-        number_literal.push('.');
-        self.ptr += 1;
-        continue;
-      }
-      if !character.is_digit(10) {
+    while let Some(current) = self.chars.get(self.ptr) {
+      let curr: char = *current;
+      if curr == '\n' {
+        self.line += 1;
         break;
       }
-      number_literal.push(num_part);
+      literal.push(curr);
       self.ptr += 1;
     }
-
-    self.add_token(number_literal, TokenType::NUMBER);
+    self.add_token(literal, TokenType::COMMENT);
   }
 
-  fn lex_string(&mut self) {
-    let mut string_literal: String = String::new();
+  /// Lexes both identifiers and keywords (since they start with letters)
+  fn lex_identifier_keywords(&mut self) -> Result<(), String> {
+    let mut literal: String = String::new();
 
-    self.ptr += 1;
-    while let Some(character) = self.chars.get(self.ptr) {
-      if *character == '\"' {
+    while let Some(current) = self.chars.get(self.ptr) {
+      let curr: char = *current;
+
+      if !curr.is_alphanumeric() {
         break;
       }
-
-      // Escape sequences
-      if *character == '\\' {
-        if let Some(next_char) = self.chars.get(self.ptr + 1) {
-          string_literal.push('\\');
-
-          match *next_char {
-            'n' | '\"' | 'r' | '\0' | '\\' => {
-              string_literal.push(*next_char);
-              self.ptr += 2;
-              continue;
-            }
-            _ => {}
-          }
-        }
-      }
-
-      string_literal.push(*character);
+      literal.push(curr);
       self.ptr += 1;
     }
-    self.add_token(string_literal, TokenType::STRING);
-  }
 
-  /// Peeks foward to see a string of length `amount`.
-  fn peek(&self, amount: usize) -> Option<String> {
-    let start: usize = self.ptr;
-    let end: usize = start + amount;
+    let mut is_keyword: bool = false;
+    for keyword in Keyword::iterator() {
+      if literal.as_str() == keyword.as_str() {
+        is_keyword = true;
+      }
+    }
 
-    if end > self.code.len() && start <= self.code.len() {
-      None
+    if is_keyword {
+      self.add_token(literal, TokenType::KEYWORD)
     } else {
-      let part: String = self.code[start..end].to_string();
-      Some(part)
+      self.add_token(literal, TokenType::IDENTIFIER);
     }
+    Ok(())
   }
 
-  /// Pushes a token to the end of the token list
+  /// Lexes a number
+  fn lex_number(&mut self) -> Result<(), String> {
+    let mut literal: String = String::new();
+    let mut dots: i32 = 0;
+
+    while let Some(current) = self.chars.get(self.ptr) {
+      let curr: char = *current;
+
+      if !curr.is_ascii_digit() {
+        if !curr.is_ascii_whitespace() {
+          let message: String = format!(
+            "Invalid character found after digit sequence \"{}\" : \"{}\"",
+            literal, curr
+          );
+          let error = self.format_error(message);
+          return Err(error);
+        }
+        break;
+      }
+
+      if curr == '.' {
+        literal.push(curr);
+
+        if dots <= 2 {
+          dots += 1;
+        }
+      }
+      literal.push(curr);
+      self.ptr += 1;
+    }
+
+    if dots >= 2 {
+      let message: String = format!("Expression \"{}\" has multiple dots", literal);
+      let error: String = self.format_error(message);
+      return Err(error);
+    }
+    Ok(self.add_token(literal, TokenType::NUMBER))
+  }
+
+  /// Lexes a string
+  fn lex_string(&mut self) -> Result<(), String> {
+    let mut literal: String = String::new();
+    let initial_line = self.line;
+
+    self.ptr += 1;
+    while let Some(current) = self.chars.get(self.ptr) {
+      let curr: char = *current;
+      if curr == '\"' {
+        break;
+      }
+
+      match curr {
+        '\n' => self.line += 1,
+        '\\' => {
+          if let Some(next) = self.chars.get(self.ptr + 1) {
+            literal.push('\\');
+            match *next {
+              'f' | 'n' | 'r' | 't' | '0' | '\"' | '\\' => {
+                literal.push(*next);
+                self.ptr += 2;
+                continue;
+              }
+              _ => {}
+            }
+          }
+        }
+        _ => {}
+      }
+
+      if self.ptr == self.chars.len() - 1 {
+        let message: String = format!("Unterminated string starting from line {}", initial_line);
+        let error: String = self.format_error(message);
+        return Err(error);
+      }
+
+      literal.push(curr);
+      self.ptr += 1;
+    }
+    Ok(self.add_token(literal, TokenType::STRING))
+  }
+
+  /// Adds a token to the token list
   fn add_token(&mut self, literal: String, token_type: TokenType) {
     let token = Token {
       literal,
@@ -170,11 +212,28 @@ impl Lexer {
     self.tokens.push(token);
   }
 
-  /// Reset the internal state of the lexer for multiple uses
+  /// Looks forwards in the characters
+  fn peek(&self, amount: usize) -> Option<String> {
+    let start = self.ptr;
+    let end = start + amount;
+
+    if end > self.chars.len() {
+      None
+    } else {
+      let part: String = self.chars[start..end].iter().collect();
+      Some(part)
+    }
+  }
+
+  /// Reset lexer to its initial state for multiple uses
   fn reset(&mut self) {
     self.ptr = 0;
-    self.code = String::new();
-    self.chars = Vec::new();
-    self.tokens = Vec::new();
+    self.line = 1;
+  }
+
+  /// Format an error
+  fn format_error(&self, message: String) -> String {
+    let error_message = format!("[line {}]: {}", self.line, message);
+    return error_message;
   }
 }
