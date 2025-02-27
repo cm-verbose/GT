@@ -1,23 +1,21 @@
-mod components;
-use components::lexer::Lexer;
-use components::reader::Reader;
-use components::token::Token;
+use components::{reader::Reader, tokenizer::Tokenizer, token::Token};
+
+pub mod components;
 
 fn main() {
-  let code: String = Reader::read_path("./programs/test.ir").unwrap();
-  let mut lexer: Lexer = Lexer::new();
+  let source_text: Result<String, String> = Reader::read("./programs/test.ir");
+  if let Err(message) = source_text {
+    println!("{message}");
+    return;
+  }
 
-  let tokens: Result<&Vec<Token>, String> = lexer.lex(code);
+  let source: String = source_text.unwrap();
+  let mut tokenizer: Tokenizer = Tokenizer::new();
 
-  match tokens {
-    Ok(tokens) => {
-      for token in tokens.iter() {
-        println!("[{:?}] {:?}", token.token_type, token.literal);
-      }
-    }
+  let possible_tokens: Result<&Vec<Token>, String> = tokenizer.tokenize(source);
 
-    Err(message) => {
-      println!("{}", message);
-    }
+  if let Err(message) = possible_tokens {
+    println!("{}", message);
+    return; 
   }
 }

@@ -1,10 +1,11 @@
+#![allow(non_camel_case_types)]
 #[derive(Debug)]
 pub enum Keyword {
   IF,
   ELSE,
-  FALSE,
+  VAL_FALSE,
+  VAL_TRUE,
   WHILE,
-  VALTRUE,
 }
 
 impl Keyword {
@@ -12,8 +13,8 @@ impl Keyword {
     match self {
       Keyword::IF => "if",
       Keyword::ELSE => "else",
-      Keyword::FALSE => "false",
-      Keyword::VALTRUE => "true",
+      Keyword::VAL_FALSE => "false",
+      Keyword::VAL_TRUE => "true",
       Keyword::WHILE => "while",
     }
   }
@@ -22,8 +23,8 @@ impl Keyword {
     static KEYWORDS: [Keyword; 5] = [
       Keyword::IF,
       Keyword::ELSE,
-      Keyword::FALSE,
-      Keyword::VALTRUE,
+      Keyword::VAL_FALSE,
+      Keyword::VAL_TRUE,
       Keyword::WHILE,
     ];
     KEYWORDS.iter()

@@ -1,11 +1,14 @@
-#[path ="./reader/reader.rs"]
-pub mod reader; 
+#[path = "./features/keyword.rs"]
+pub mod keyword;
 
-#[path ="./lexer/lexer.rs"]
-pub mod lexer; 
+#[path = "./features/token.rs"]
+pub mod token;
 
-#[path ="./definitions/token.rs"]
-pub mod token; 
+#[path = "./tokenizer/tokenizer.rs"]
+pub mod tokenizer;
 
-#[path ="./definitions/keyword.rs"]
-pub mod keyword; 
+#[path = "./reader/reader.rs"]
+pub mod reader;
+
+#[path = "./util/error_reporter.rs"]
+pub mod error_reporter;
