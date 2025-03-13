@@ -4,6 +4,12 @@ pub mod keyword;
 #[path = "./features/token.rs"]
 pub mod token;
 
+#[path = "./transpiler/transpiler.rs"]
+pub mod transpiler;
+
+#[path = "./parser/parser.rs"]
+pub mod parser;
+
 #[path = "./tokenizer/tokenizer.rs"]
 pub mod tokenizer;
 

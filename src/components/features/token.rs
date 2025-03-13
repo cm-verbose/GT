@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub enum TokenType {
-  Bracket, 
+  Bracket,
   Comment,
-  Identifier, 
+  Identifier,
   Keyword,
   Number,
   Operator,
@@ -11,6 +11,6 @@ pub enum TokenType {
 
 #[derive(Debug)]
 pub struct Token {
-  pub literal: String, 
-  pub kind: TokenType, 
+  pub literal: String,
+  pub kind: TokenType,
 }

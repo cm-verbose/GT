@@ -7,7 +7,7 @@ impl Reporter {
   }
 
   pub fn wrap_warning(message: String) -> String {
-    let message: String = format!("[GT] [Warning]: {}", message); 
+    let message: String = format!("[GT] [Warning]: {}", message);
     message
   }
 }
